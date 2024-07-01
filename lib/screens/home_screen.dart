@@ -12,13 +12,19 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   var _taskController;
 
-  void saveData() async{
+  void saveData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     Task t = Task.fromString(_taskController.text);
-    // prefs.setString('task', json.encode(t.getMap()));
-    // _taskController.text = '';
 
+    String? task = prefs.getString('task');
+    List list = (task == null) ? [] : json.decode(task);
+    print(list);
 
+    list.add(t.getMap());
+    prefs.setString('task', json.encode(list));
+
+    _taskController.text = ''; // Clear the input field
+    Navigator.of(context).pop();
   }
   @override
   void initState() {
@@ -49,73 +55,65 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Text('Task'),
       ),
       floatingActionButton: FloatingActionButton(
-        child:  Icon(
-        Icons.add
-        ),
+        child: Icon(Icons.add),
         backgroundColor: Colors.blue[600],
-        onPressed: () => showModalBottomSheet (
+        onPressed: () => showModalBottomSheet(
           context: context,
           builder: (BuildContext context) {
             return Container(
               padding: const EdgeInsets.all(10.0),
               color: Colors.blue[400],
-              child: SizedBox.expand (
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Add task'),
-                      GestureDetector(
-                          onTap: () => Navigator.of(context).pop(),
-                          child: Icon(Icons.close)
-                      ),
-                    ],
-                  ),
-                  Divider(
-                    thickness: 1.2,
-                    color: Colors.black,
-                  ),
-                  SizedBox(height: 20.0),
-                  TextField(
-                    controller: _taskController,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(5.0),
-                        borderSide: BorderSide(color: Colors.blue)
-                      ),
-                      fillColor: Colors.white,
-                      filled: true,
-                      hintText: 'Enter Task',
-                      //hind style to do
-                    ),
-                  ),
-                  SizedBox(height: 8.0),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                    width: MediaQuery.of(context).size.width,
-                    height: 200.0,
-                    child: Row(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          width: (MediaQuery.of(context).size.width / 2) - 10,
+                        Text('Add task', style: TextStyle(color: Colors.white)),
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Icon(Icons.close, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    Divider(
+                      thickness: 1.2,
+                      color: Colors.black,
+                    ),
+                    SizedBox(height: 20.0),
+                    TextField(
+                      controller: _taskController,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(5.0),
+                          borderSide: BorderSide(color: Colors.blue),
+                        ),
+                        fillColor: Colors.white,
+                        filled: true,
+                        hintText: 'Enter Task',
+                      ),
+                    ),
+                    SizedBox(height: 8.0),
+                    Row(
+                      children: [
+                        Expanded(
                           child: ElevatedButton(
                             child: Text('Reset'),
                             onPressed: () => _taskController.text = '',
                           ),
                         ),
-                        Container(
-                          width: (MediaQuery.of(context).size.width / 2) - 10,
+                        SizedBox(width: 10.0),
+                        Expanded(
                           child: ElevatedButton(
-                              child: Text('Add'),
-                              onPressed: () => saveData(),
+                            child: Text('Add'),
+                            onPressed: () => saveData(),
                           ),
                         ),
                       ],
                     ),
-                  )
-                ],
-              ),
+                  ],
+                ),
               ),
             );
           },
