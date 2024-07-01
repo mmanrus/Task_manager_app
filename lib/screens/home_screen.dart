@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:js_interop';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,13 +12,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   var _taskController;
+  late List<Task> _tasks;
 
   void saveData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     Task t = Task.fromString(_taskController.text);
 
-    String? task = prefs.getString('task');
-    List list = (task == null) ? [] : json.decode(task);
+    String? tasks = prefs.getString('task');
+    List list = (tasks == null) ? [] : json.decode(tasks);
     print(list);
 
     list.add(t.getMap());
@@ -26,10 +28,27 @@ class _HomeScreenState extends State<HomeScreen> {
     _taskController.text = ''; // Clear the input field
     Navigator.of(context).pop();
   }
+
+  void _getTasks() async{
+    _tasks = [];
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? tasks = prefs.getString('task');
+
+
+    List list = (tasks == null) ? [] : json.decode(tasks);
+    for (Map<String, dynamic> d in list) {
+
+      _tasks.add(Task.fromMap(json.decode(d as String)));
+    }
+
+    print(_tasks);
+  }
   @override
   void initState() {
     super.initState();
     _taskController = TextEditingController();
+
+    _getTasks();
   }
   @override
   void dispose() {
@@ -50,9 +69,41 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         backgroundColor: Colors.blue[600], // Set your desired color here
       ),
-      body:
-      Center(
-        child: Text('Task'),
+      body: (_tasks == null) ? Center (
+          child: Text('Task'),
+      ) : Column (
+        children: _tasks.map((e) => Container(
+          height: 70.0,
+          width: MediaQuery.of(context).size.width,
+          margin: const EdgeInsets.symmetric(
+              horizontal: 10.0,
+              vertical: 5.0
+          ),
+          padding: const EdgeInsets.only(
+              left: 10.0,
+          ),
+          alignment: Alignment.centerLeft,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(5.0),
+            border: Border.all(
+              color: Colors.black,
+              width: 0.5,
+            )
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+            Text(e.task),
+            Checkbox(
+              value: false,
+              key: GlobalKey(), onChanged: (bool? value) {  },
+            ),
+          ],
+          ), // Add style
+
+        )
+        )
+            .toList()
       ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
