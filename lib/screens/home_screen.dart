@@ -207,7 +207,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         hintText: 'Enter Task',
                       ),
                     ),
-
+                    MaterialButton(
+                      onPressed: _showDatePicker,
+                      child:
+                      const Padding (
+                        padding: EdgeInsets.all(20.0),
+                        child: Text(
+                          'Pick date',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ),
+                    ),
                     SizedBox(height: 8.0),
                     Row(
                       children: [
