@@ -1,18 +1,56 @@
-import 'dart:convert';
-import 'dart:js_interop';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
-import '../model/task.dart';
+class Task {
+  final String task;
+
+  Task(this.task);
+
+  Map<String, dynamic> getMap() {
+    return {'task': task};
+  }
+
+  static Task fromMap(Map<String, dynamic> map) {
+    return Task(map['task']);
+  }
+
+  static Task fromString(String task) {
+    return Task(task);
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  var _taskController;
+  late TextEditingController _taskController;
   late List<Task> _tasks;
+  late List<bool> _taskDone;
+
+  @override
+  void initState() {
+    super.initState();
+    _taskController = TextEditingController();
+
+    // Initialize tasks with example data
+    _tasks = [
+      Task('Example Task 1'),
+      Task('Example Task 2'),
+      Task('Example Task 3'),
+    ];
+    _taskDone = List.generate(_tasks.length, (index) => false);
+
+    _getTasks(); // Fetch saved tasks
+  }
+
+  @override
+  void dispose() {
+    _taskController.dispose();
+    super.dispose();
+  }
 
   void saveData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -20,41 +58,47 @@ class _HomeScreenState extends State<HomeScreen> {
 
     String? tasks = prefs.getString('task');
     List list = (tasks == null) ? [] : json.decode(tasks);
-    print(list);
-
     list.add(t.getMap());
     prefs.setString('task', json.encode(list));
 
     _taskController.text = ''; // Clear the input field
+    _getTasks(); // Refresh the task list
     Navigator.of(context).pop();
   }
 
-  void _getTasks() async{
-    _tasks = [];
+  void _getTasks() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? tasks = prefs.getString('task');
-
-
     List list = (tasks == null) ? [] : json.decode(tasks);
-    for (Map<String, dynamic> d in list) {
-
-      _tasks.add(Task.fromMap(json.decode(d as String)));
-    }
-
-    print(_tasks);
+    _tasks = list.map((d) => Task.fromMap(d as Map<String, dynamic>)).toList();
+    _taskDone = List.generate(_tasks.length, (index) => false);
+    setState(() {});
   }
-  @override
-  void initState() {
-    super.initState();
-    _taskController = TextEditingController();
+
+  void updatePendingTaskList() async{
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<Task> pendingList = [];
+
+    for (var i = 0 ; i < _tasks.length; i++) {
+      if (!_taskDone[i]) pendingList.add(_tasks[i]);
+    }
+    var pendingListEncoded = List.generate(
+        pendingList.length, (i) => json.encode(pendingList[i].getMap())
+    );
+
+    prefs.setString('task', json.encode(pendingListEncoded));
 
     _getTasks();
   }
-  @override
-  void dispose() {
-    _taskController.dispose();
-    super.dispose();
+
+  void _showDatePicker() {
+    showDatePicker(
+        context: context,
+        firstDate: DateTime.now(),
+        lastDate: DateTime(DateTime.now().year + 1, DateTime.now().month, DateTime.now().day),
+    );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,48 +106,66 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(
           'Home Screen',
           style: TextStyle(
-              fontSize: 20.0,
-              fontWeight: FontWeight.bold,
-              color: Colors.white
+            fontSize: 20.0,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
+        actions: [
+          IconButton(
+              onPressed: updatePendingTaskList,
+              icon: Icon(Icons.save)
+          ),
+          IconButton(
+              onPressed: () async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                prefs.setString('task', jsonEncode([]));
+
+                _getTasks();
+              },
+              icon: Icon(Icons.delete)
+          ),
+        ],
         backgroundColor: Colors.blue[600], // Set your desired color here
       ),
-      body: (_tasks == null) ? Center (
-          child: Text('Task'),
-      ) : Column (
-        children: _tasks.map((e) => Container(
-          height: 70.0,
-          width: MediaQuery.of(context).size.width,
-          margin: const EdgeInsets.symmetric(
+      body: _tasks.isEmpty
+          ? Center(child: Text('No Tasks'))
+          : ListView.builder(
+        itemCount: _tasks.length,
+        itemBuilder: (context, index) {
+          final task = _tasks[index];
+          return Container(
+            height: 70.0,
+            width: MediaQuery.of(context).size.width,
+            margin: const EdgeInsets.symmetric(
               horizontal: 10.0,
-              vertical: 5.0
-          ),
-          padding: const EdgeInsets.only(
-              left: 10.0,
-          ),
-          alignment: Alignment.centerLeft,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(5.0),
-            border: Border.all(
-              color: Colors.black,
-              width: 0.5,
-            )
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-            Text(e.task),
-            Checkbox(
-              value: false,
-              key: GlobalKey(), onChanged: (bool? value) {  },
+              vertical: 5.0,
             ),
-          ],
-          ), // Add style
-
-        )
-        )
-            .toList()
+            padding: const EdgeInsets.only(left: 10.0),
+            alignment: Alignment.centerLeft,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(5.0),
+              border: Border.all(
+                color: Colors.black,
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(task.task),
+                Checkbox(
+                  value: _taskDone[index],
+                  onChanged: (val) {
+                    setState(() {
+                      _taskDone[index] = val!;
+                    });
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
@@ -145,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         hintText: 'Enter Task',
                       ),
                     ),
+
                     SizedBox(height: 8.0),
                     Row(
                       children: [
@@ -168,31 +231,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           },
-        ),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.blue[600],
-        child: IconTheme(
-          data: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-          child: Row(
-            children: <Widget>[
-              IconButton(
-                tooltip: 'Open navigation menu',
-                icon: const Icon(Icons.menu),
-                onPressed: () {},
-              ),
-              IconButton(
-                tooltip: 'Search',
-                icon: const Icon(Icons.search),
-                onPressed: () {},
-              ),
-              IconButton(
-                tooltip: 'Favorite',
-                icon: const Icon(Icons.favorite),
-                onPressed: () {},
-              )
-            ],
-          ),
         ),
       ),
     );
