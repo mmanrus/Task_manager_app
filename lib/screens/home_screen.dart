@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class Task {
   final String task;
@@ -27,13 +28,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late TextEditingController _taskController;
+  late TextEditingController _dateController;
   late List<Task> _tasks;
   late List<bool> _taskDone;
+  DateTime? _selectedDate;
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
     _taskController = TextEditingController();
+    _dateController = TextEditingController();
 
     // Initialize tasks with example data
     _tasks = [
@@ -49,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _taskController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
@@ -62,8 +69,9 @@ class _HomeScreenState extends State<HomeScreen> {
     prefs.setString('task', json.encode(list));
 
     _taskController.text = ''; // Clear the input field
+    _dateController.text = '';
     _getTasks(); // Refresh the task list
-    Navigator.of(context).pop();
+    Navigator.of(_scaffoldKey.currentContext!).pop(); // Close the modal bottom sheet
   }
 
   void _getTasks() async {
@@ -75,33 +83,39 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
-  void updatePendingTaskList() async{
+  void updatePendingTaskList() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     List<Task> pendingList = [];
 
-    for (var i = 0 ; i < _tasks.length; i++) {
+    for (var i = 0; i < _tasks.length; i++) {
       if (!_taskDone[i]) pendingList.add(_tasks[i]);
     }
     var pendingListEncoded = List.generate(
-        pendingList.length, (i) => json.encode(pendingList[i].getMap())
-    );
+        pendingList.length, (i) => json.encode(pendingList[i].getMap()));
 
     prefs.setString('task', json.encode(pendingListEncoded));
 
     _getTasks();
   }
 
-  void _showDatePicker() {
-    showDatePicker(
-        context: context,
-        firstDate: DateTime.now(),
-        lastDate: DateTime(DateTime.now().year + 1, DateTime.now().month, DateTime.now().day),
+  void _showDatePicker() async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(DateTime.now().year + 1, DateTime.now().month, DateTime.now().day),
     );
+    if (pickedDate != null) {
+      setState(() {
+        _dateController.text = DateFormat('yyyy-MM-dd').format(pickedDate);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey, // Assign key to Scaffold
       appBar: AppBar(
         title: Text(
           'Home Screen',
@@ -113,17 +127,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-              onPressed: updatePendingTaskList,
-              icon: Icon(Icons.save)
+            onPressed: updatePendingTaskList,
+            icon: Icon(Icons.save),
           ),
           IconButton(
-              onPressed: () async {
-                SharedPreferences prefs = await SharedPreferences.getInstance();
-                prefs.setString('task', jsonEncode([]));
+            onPressed: () async {
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              prefs.setString('task', jsonEncode([]));
 
-                _getTasks();
-              },
-              icon: Icon(Icons.delete)
+              _getTasks();
+            },
+            icon: Icon(Icons.delete),
           ),
         ],
         backgroundColor: Colors.blue[600], // Set your desired color here
@@ -170,13 +184,13 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
         backgroundColor: Colors.blue[600],
-        onPressed: () => showModalBottomSheet(
-          context: context,
-          builder: (BuildContext context) {
-            return Container(
-              padding: const EdgeInsets.all(10.0),
-              color: Colors.blue[400],
-              child: SingleChildScrollView(
+        onPressed: () {
+          showModalBottomSheet(
+            context: _scaffoldKey.currentContext!,
+            builder: (BuildContext context) {
+              return Container(
+                padding: const EdgeInsets.all(10.0),
+                color: Colors.blue[400],
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -185,7 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text('Add task', style: TextStyle(color: Colors.white)),
                         GestureDetector(
-                          onTap: () => Navigator.of(context).pop(),
+                          onTap: () {
+                            Navigator.of(_scaffoldKey.currentContext!).pop(); // Close modal
+                          },
                           child: Icon(Icons.close, color: Colors.white),
                         ),
                       ],
@@ -207,19 +223,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         hintText: 'Enter Task',
                       ),
                     ),
-                    MaterialButton(
-                      onPressed: _showDatePicker,
-                      child:
-                      const Padding (
-                        padding: EdgeInsets.all(20.0),
-                        child: Text(
-                          'Pick date',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _dateController,
+                            decoration: const InputDecoration(
+                              icon: Icon(Icons.calendar_today_outlined),
+                              labelText: "Select Date",
+                            ),
+                            onTap: _showDatePicker,
                           ),
                         ),
-                      ),
+                      ],
                     ),
                     SizedBox(height: 8.0),
                     Row(
@@ -241,11 +257,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
+
